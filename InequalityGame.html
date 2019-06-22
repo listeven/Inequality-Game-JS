@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Pay Inequality Game</title>
+<style>
+canvas { border:5px solid black; margin: 25px;}
+</style>
+<script>
+
+var P1 = {              
+    x : 5,
+    y : 6,
+    newX : 5,
+    newY : 6,
+    xStep : 0,
+    yStep : 0,
+    due : 0, 
+    direction : 0,  // 0 = down 1 = left 2 = right 3 = up
+    xSprite : 0,
+    score : 0,
+    coins : 76,
+    coinVal : 1,
+    powerUpsCollected : 0,
+    map : [                        // Game Map 1
+    [0,0,0,0,0,0,0,0,0,0,0],        // 0 = Wall
+    [0,2,1,1,1,1,1,1,1,2,0],        // 1 = Coin
+    [0,1,0,0,1,1,1,0,0,1,0],        // 2 = Power Up
+    [0,1,0,1,1,0,1,1,0,1,0],        // 3 = Empty
+    [0,1,1,1,1,0,1,1,1,1,0],        // 4 = Player
+    [0,1,1,1,1,0,1,1,1,1,0],        // 5 = CPU
+    [0,1,0,0,1,4,1,0,0,1,0],
+    [0,1,1,1,1,0,1,1,1,1,0],
+    [0,1,1,1,1,0,1,1,1,1,0],
+    [0,1,0,1,1,0,1,1,0,1,0],
+    [0,1,0,0,1,1,1,0,0,1,0],
+    [0,2,1,1,1,1,1,1,1,2,0],    
+    [0,0,0,0,0,0,0,0,0,0,0]  
+    ] 
+
+};
+
+var P2 = {
+    x : 5,
+    y : 6,
+    newX : 5,
+    newY : 6,
+    xStep : 0,
+    yStep : 0,
+    due : 0,
+    direction : 0, // 0 = down 1 = left 2 = right 3 = up
+    xSprite : 0,
+    score : 0,
+    coins : 76,
+    coinVal : 10,
+    map : [                        // Game Map 2
+    [0,0,0,0,0,0,0,0,0,0,0],        // 0 = Wall
+    [0,2,1,1,1,1,1,1,1,2,0],        // 1 = Coin
+    [0,1,0,0,1,1,1,0,0,1,0],        // 2 = Power Up
+    [0,1,0,1,1,0,1,1,0,1,0],        // 3 = Empty
+    [0,1,1,1,1,0,1,1,1,1,0],        // 4 = Player
+    [0,1,1,1,1,0,1,1,1,1,0],        // 5 = CPU
+    [0,1,0,0,1,5,1,0,0,1,0],
+    [0,1,1,1,1,0,1,1,1,1,0],
+    [0,1,1,1,1,0,1,1,1,1,0],
+    [0,1,0,1,1,0,1,1,0,1,0],
+    [0,1,0,0,1,1,1,0,0,1,0],
+    [0,2,1,1,1,1,1,1,1,2,0],    
+    [0,0,0,0,0,0,0,0,0,0,0]   
+    ]
+};
+
+var Boss1 = {
+    x : 5,
+    y : 1,
+    newX : 5,
+    newY : 1,
+    xStep : 0,
+    yStep : 0,
+    due : 0,
+    direction : 0,
+    xSprite : 0,
+    alive : true,
+    vulnerable : false
+};
+
+var canvas;
+var ctx;
+
+var xMap = 100, yMap = 240;
+var blockSize = 40;
+var gameLevel = 1;
+var totalLevels = 3;
+var gameRun = true;
+var gameOver = false;
+
+var keyPressed = {};
+
+
+
+
+function init(){
+    canvas = document.getElementById('myCanvas');
+    ctx = canvas.getContext('2d');
+    canvas2 = document.getElementById('instructions');
+    ctx2 = canvas2.getContext('2d');
+    document.getElementById('coinSound').style.display = 'none';
+    writeInstructions();
+    window.setInterval(update,150);
+    requestAnimationFrame(draw);
+    window.onkeydown = keydown;
+    window.onkeyup = keyup;
+}
+
+function keydown(e){
+    keyPressed[e.key] = true;
+    if(gameRun == true){
+        // Update player direction           
+        if (keyPressed['ArrowDown']) {
+            P1.due = 0;
+        }
+        else if (keyPressed['ArrowLeft']) {
+            P1.due = 1;
+        }
+        else if (keyPressed['ArrowRight']) {
+            P1.due = 2;
+        }
+        else if (keyPressed['ArrowUp']) {
+            P1.due = 3;
+        } 
+    }
+    else if (gameRun == false){
+        resetGame();
+    }
+}
+
+function keyup(e){
+    keyPressed[e.key] = false;
+}
+
+function writeInstructions(){
+    ctx2.font = '42px Helvetica';
+    ctx2.fillStyle = 'black';
+    ctx2.textAlign = 'center';
+    ctx2.fillText('Instructions', 150, 70);
+
+    ctx2.font = '20px Helvetica';
+    ctx2.textAlign = 'start';
+    ctx2.fillText('Use the arrow keys to move.', 10, 220);
+    ctx2.fillText('Collect all the coins for money.', 10, 245);
+    ctx2.fillText('Collect all the power ups and ', 10, 270);
+    ctx2.fillText('then find the boss for a raise.', 10, 295);
+    ctx2.fillText('Good luck!', 10, 320);
+
+    ctx2.beginPath();
+    ctx2.fillStyle = 'black';
+    ctx2.ellipse(20, 150, 5, 5, 0, 0, 2 * Math.PI);
+    ctx2.fill();
+    ctx2.fillText(' -  Coin', 30, 156);
+
+
+    ctx2.beginPath();
+    ctx2.fillStyle = 'black';
+    ctx2.ellipse(20, 175, 10, 10, 0, 0, 2 * Math.PI);
+    ctx2.fill();
+    ctx2.fillText(' -  Power Up', 30, 185);
+
+
+}
+
+function drawObject(x,y,id){
+    if(id == 0){
+        ctx.fillStyle = 'tan';
+        ctx.fillRect(x, y, blockSize, blockSize);
+    }
+    else if(id == 1){
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x,y, blockSize, blockSize);
+        ctx.beginPath();
+        ctx.fillStyle = 'black';
+        ctx.ellipse(x + blockSize/2, y + blockSize/2, 5, 5, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    else if(id == 2){
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x, y, blockSize, blockSize);
+        ctx.beginPath();
+        ctx.fillStyle = 'black';
+        ctx.ellipse(x + blockSize/2, y + blockSize/2, 10, 10, 0, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    else if(id == 3 || id == 4 || id == 5){
+        ctx.fillStyle = 'white';
+        ctx.fillRect(x, y, blockSize, blockSize); 
+    }  
+}
+
+function drawLayout(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#94bcfc';
+    ctx.fillRect(0,0,1200,800);
+
+    ctx.font = '72px Helvetica';
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'center';
+    ctx.fillText('Getting That Bread', 600, 100);
+
+    ctx.font = '20px Helvetica';
+    ctx.fillStyle = 'black';
+    ctx.textAlign = 'start';
+    ctx.fillText('Score: ' + P1.score, xMap, yMap - 10);
+    ctx.fillText('Score: ' + P2.score, xMap + (14*blockSize), yMap - 10);
+    ctx.lineWidth = 10;
+    ctx.strokeRect(xMap, yMap, 11*blockSize, 13*blockSize);
+    ctx.strokeRect(xMap + (14*blockSize), yMap, 11*blockSize, 13*blockSize);
+}
+function drawP1(){
+    // Draw map 1
+    for(var j = 0; j < P1.map.length; j++){
+        for(var i = 0; i < P1.map[j].length; i++){
+            drawObject(i*blockSize + xMap, j*blockSize + yMap, P1.map[j][i]);
+        }
+    }
+    // Draw Boss
+    if(Boss1.alive){
+        var bossSprite = document.getElementById('Boss');
+        var bX = Boss1.x*blockSize + xMap;
+        var bY = Boss1.y*blockSize + yMap;
+        ctx.drawImage(bossSprite,Boss1.xSprite*64,Boss1.direction*64,64,64,bX+Boss1.xStep,bY+Boss1.yStep,40,40);
+    }
+    // Draw the character after map
+    var sprite = document.getElementById('femalePlayer');
+    var x = P1.x*blockSize + xMap;
+    var y = P1.y*blockSize + yMap;
+    ctx.drawImage(sprite,P1.xSprite*64,P1.direction*64,64,64,x+P1.xStep,y+P1.yStep,40,40);
+
+}
+function drawP2(){
+    // Draw map 2
+    for(var j = 0; j < P2.map.length; j++){
+        for(var i = 0; i < P2.map[j].length; i++){
+            drawObject(i*blockSize + xMap + (14*blockSize), j*blockSize + yMap, P2.map[j][i]);
+        }
+    }
+    // Draw character 2 after map
+    var sprite2 = document.getElementById('malePlayer');
+    var x = P2.x*blockSize + xMap + (14*blockSize);
+    var y = P2.y*blockSize + yMap;
+    ctx.drawImage(sprite2,P2.xSprite*46,P2.direction*64,46,64,x+P2.xStep,y+P2.yStep,40,40);
+
+}
+function drawGameOver(){
+    ctx.strokeRect(400, 400, 400, 200);
+    ctx.fillStyle = 'white';
+    ctx.fillRect(400, 400, 400, 200);
+    ctx.fillStyle = 'black';
+    ctx.font = '28px Helvetica';
+    ctx.textAlign = 'center';
+    if(gameOver == true){
+        ctx.fillText('Game Over!', 600, 440);
+        if(P1.coins == 0 || P2.coins == 0){
+            if(P1.score > P2.score){
+                ctx.fillText('You earned more money.', 600, 480);
+                ctx.fillText('You win!', 600, 520);
+            }
+            else if(P1.score < P2.score){
+                ctx.fillText('You earned less money.', 600, 480, 400);
+                ctx.fillText('You lost!', 600, 520);
+            }
+            else{
+                ctx.fillText('You earned the same amount.', 600, 480, 400);
+                ctx.fillText('Draw!', 600, 520);
+            }
+        }
+        else{
+            ctx.fillText('You caught the boss in a bad mood!', 600, 480, 400);
+            ctx.fillText('You lost!', 600, 520);
+        }
+
+        ctx.font = '24px Helvetica';
+        ctx.fillText('(Press spacebar to try again)', 600, 560);
+    }
+    else{
+        ctx.fillText('Next level!', 600, 440);
+        if(P1.score > P2.score){
+            ctx.fillText('You earned more money.', 600, 480);
+        }
+        else if(P1.score < P2.score){
+            ctx.fillText('You earned less money.', 600, 480, 400);
+        }
+        else{
+            ctx.fillText('You earned the same amount.', 600, 480, 400);
+        }
+        ctx.font = '24px Helvetica';
+        ctx.fillText('(Press spacebar to continue)', 600, 560);
+    }
+
+}
+function draw(){
+    drawLayout();
+    drawP1();
+    drawP2();
+
+    if(gameRun == false){
+        drawGameOver();
+    }
+    requestAnimationFrame(draw);
+}
+
+// Helper functions for movement
+function sameAxis(due, dir){
+    return ( ((due == 0 || due == 3) && (dir == 0 || dir == 3)) || ((due == 1 || due == 2) && (dir == 1 || dir == 2)) )
+}
+
+function updateP1Movement(){
+        // Player movement              
+        if(sameAxis(P1.due, P1.direction)){     // reset sprite here. check if due != dir
+            if(P1.due != P1.direction){
+                P1.xSprite = 0;
+            }
+            P1.direction = P1.due;
+        }
+        else{
+            if(P1.xStep == 0 && P1.yStep == 0){
+                if(P1.due != P1.direction){
+                    P1.xSprite = 0;
+                }
+                P1.direction = P1.due;
+            }
+        }
+
+        if (P1.direction == 0 && P1.map[P1.y+1][P1.x] != 0) {        // Move down
+            if(P1.yStep == 0){
+                P1.yStep = blockSize/2;
+            }
+            else if(P1.yStep == blockSize/2){
+                P1.yStep = 0;
+                P1.map[P1.y][P1.x] = 3;
+                P1.newX = P1.x;
+                P1.newY = P1.y+1;
+            }
+            else if(P1.yStep == blockSize/-2){
+                P1.yStep = 0;
+            }
+            P1.xSprite = (P1.xSprite+1)%4;
+        }
+        else if (P1.direction == 1 && P1.map[P1.y][P1.x-1] != 0) {      // Move left
+            if(P1.xStep == 0){
+                P1.xStep = blockSize/-2;
+            }
+            else if(P1.xStep == blockSize/-2){
+                P1.xStep = 0;
+                P1.map[P1.y][P1.x] = 3;
+                P1.newX = P1.x-1;
+                P1.newY = P1.y;
+            }
+            else if(P1.xStep == blockSize/2){
+                P1.xStep = 0;
+            }
+            P1.xSprite = (P1.xSprite+1)%4;
+
+        }
+        else if (P1.direction == 2 && P1.map[P1.y][P1.x+1] != 0) {          // Move right
+            if(P1.xStep == 0){                  // Take half step
+                P1.xStep = blockSize/2;
+            }
+            else if(P1.xStep == blockSize/2){
+                P1.xStep = 0;
+                P1.map[P1.y][P1.x] = 3;
+                P1.newX = P1.x+1;
+                P1.newY = P1.y;
+            }
+            else if(P1.xStep == blockSize/-2){
+                P1.xStep = 0;
+            }
+            P1.xSprite = (P1.xSprite+1)%4;
+ 
+        }
+        else if (P1.direction == 3 && P1.map[P1.y-1][P1.x] != 0) {          // Move up
+            if(P1.yStep == 0){
+                P1.yStep = blockSize/-2;
+            }
+            else if(P1.yStep == blockSize/-2){
+                P1.yStep = 0;
+                P1.map[P1.y][P1.x] = 3;
+                P1.newX = P1.x;
+                P1.newY = P1.y-1;
+            }
+            else if(P1.yStep == blockSize/2){
+                P1.yStep = 0;
+            }
+            P1.xSprite = (P1.xSprite+1)%4;
+
+        } 
+        else{
+            P1.xStep = 0;
+            P1.yStep = 0;
+            P1.xSprite = 0;
+        }
+
+
+        if(P1.map[P1.newY][P1.newX] == 1){
+            P1.score += P1.coinVal;
+            P1.coins--;
+            document.getElementById('coinSound').play();
+        }
+        else if(P1.map[P1.newY][P1.newX] == 2){
+            P1.powerUpsCollected += 1;
+            if(P1.powerUpsCollected == 4){
+                Boss1.vulnerable = true;
+            }
+            P1.coins--;
+        }
+        P1.map[P1.newY][P1.newX] = 4;
+        P1.x = P1.newX;
+        P1.y = P1.newY;
+
+}
+
+function updateP2Movement(){
+        // CPU movement
+
+        P2.due = Math.floor(Math.random() * 4); // 0 = down 1 = left 2 = right 3 = up
+        if(sameAxis(P2.due, P2.direction)){     // reset sprite here. check if due != dir
+            if(P2.due != P2.direction){
+                P2.xSprite = 0;
+            }
+            P2.direction = P2.due;
+        }
+        else{
+            if(P2.xStep == 0 && P2.yStep == 0){
+                if(P2.due != P2.direction){
+                    P2.xSprite = 0;
+                }
+                P2.direction = P2.due;
+            }
+        }
+
+        if (P2.direction == 0 && P2.map[P2.y+1][P2.x] != 0) {
+            if(P2.yStep == 0){
+                P2.yStep = blockSize/2;
+            }
+            else if(P2.yStep == blockSize/2){
+                P2.yStep = 0;
+                P2.map[P2.y][P2.x] = 3;
+                P2.newX = P2.x;
+                P2.newY = P2.y+1;
+            }
+            else if(P2.yStep == blockSize/-2){
+                P2.yStep = 0;
+            }
+            P2.xSprite = (P2.xSprite+1)%4;
+        }
+        else if (P2.direction == 1 && P2.map[P2.y][P2.x-1] != 0) {
+            if(P2.xStep == 0){
+                P2.xStep = blockSize/-2;
+            }
+            else if(P2.xStep == blockSize/-2){
+                P2.xStep = 0;
+                P2.map[P2.y][P2.x] = 3;
+                P2.newX = P2.x-1;
+                P2.newY = P2.y;
+            }
+            else if(P2.xStep == blockSize/2){
+                P2.xStep = 0;
+            }
+            P2.xSprite = (P2.xSprite+1)%4;
+
+        }
+        else if (P2.direction == 2 && P2.map[P2.y][P2.x+1] != 0) {
+            if(P2.xStep == 0){
+                P2.xStep = blockSize/2;
+            }
+            else if(P2.xStep == blockSize/2){
+                P2.xStep = 0;
+                P2.map[P2.y][P2.x] = 3;
+                P2.newX = P2.x+1;
+                P2.newY = P2.y;
+            }
+            else if(P2.xStep == blockSize/-2){
+                P2.xStep = 0;
+            }
+            P2.xSprite = (P2.xSprite+1)%4;
+       
+        }
+        else if (P2.direction == 3 && P2.map[P2.y-1][P2.x] != 0) {
+            if(P2.yStep == 0){
+                P2.yStep = blockSize/-2;
+            }
+            else if(P2.yStep == blockSize/-2){
+                P2.yStep = 0;
+                P2.map[P2.y][P2.x] = 3;
+                P2.newX = P2.x;
+                P2.newY = P2.y-1;
+            }
+            else if(P2.yStep == blockSize/2){
+                P2.yStep = 0;
+            }
+            P2.xSprite = (P2.xSprite+1)%4;
+
+        }   
+        else{
+            P2.xSprite = 0;
+        }
+
+        if(P2.map[P2.newY][P2.newX] == 1){
+            P2.score += P2.coinVal;
+            P2.coins--;
+        }
+        else if(P2.map[P2.newY][P2.newX] == 2){
+            P2.coinVal += 2;
+            P2.coins--;
+        }
+        P2.map[P2.newY][P2.newX] = 5;
+        P2.x = P2.newX;
+        P2.y = P2.newY;
+}
+
+function checkCollision(P, B){        // player, boss
+    var collision = false;
+    if(P.x == B.x && P.y == B.y){
+        collision = true;
+    }
+    else if(P.direction == 0 && B.direction == 3 && P.x == B.x && P.y+1 == B.y){
+        collision = true;
+    }
+    else if(P.direction == 3 && B.direction == 0 && P.x == B.x && P.y == B.y+1){
+        collision = true;
+    }
+    else if(P.direction == 1 && B.direction == 2 && P.x == B.x+1 && P.y == B.y){
+        collision = true;
+    }
+    else if(P.direction == 2 && B.direction == 1 && P.x+1 == B.x && P.y == B.y){
+        collision = true;
+    }
+
+    if(collision == true){
+        if(B.vulnerable){
+            B.alive = false;
+            P.coinVal += 2;
+            console.log("CoinVal " + P.coinVal);
+        }
+        else{
+            gameRun = false;
+            gameOver = true;
+        }
+    }
+}
+
+function updateB1Movement(){
+        // CPU movement
+
+        Boss1.due = Math.floor(Math.random() * 4); // 0 = down 1 = left 2 = right 3 = up
+        if(sameAxis(Boss1.due, Boss1.direction)){     // reset sprite here. check if due != dir
+            if(Boss1.due != Boss1.direction){
+                Boss1.xSprite = 0;
+            }
+            Boss1.direction = Boss1.due;
+        }
+        else{
+            if(Boss1.xStep == 0 && Boss1.yStep == 0){
+                if(Boss1.due != Boss1.direction){
+                    Boss1.xSprite = 0;
+                }
+                Boss1.direction = Boss1.due;
+            }
+        }
+        if (Boss1.direction == 0 && P1.map[Boss1.y+1][Boss1.x] != 0) {
+            if(Boss1.yStep == 0){
+                Boss1.yStep = blockSize/2;
+            }
+            else if(Boss1.yStep == blockSize/2){
+                Boss1.yStep = 0;
+                Boss1.newX = Boss1.x;
+                Boss1.newY = Boss1.y+1;
+            }
+            else if(Boss1.yStep == blockSize/-2){
+                Boss1.yStep = 0;
+            }
+            Boss1.xSprite = (Boss1.xSprite+1)%4;
+
+        }
+        else if (Boss1.direction == 1 && P1.map[Boss1.y][Boss1.x-1] != 0) {
+            if(Boss1.xStep == 0){
+                Boss1.xStep = blockSize/-2;
+            }
+            else if(Boss1.xStep == blockSize/-2){
+                Boss1.xStep = 0;
+                Boss1.newX = Boss1.x-1;
+                Boss1.newY = Boss1.y;
+            }
+            else if(Boss1.xStep == blockSize/2){
+                Boss1.xStep = 0;
+            }
+            Boss1.xSprite = (Boss1.xSprite+1)%4;
+
+        }
+        else if (Boss1.direction == 2 && P1.map[Boss1.y][Boss1.x+1] != 0) {
+            if(Boss1.xStep == 0){
+                Boss1.xStep = blockSize/2;
+            }
+            else if(Boss1.xStep == blockSize/2){
+                Boss1.xStep = 0;
+                Boss1.newX = Boss1.x+1;
+                Boss1.newY = Boss1.y;
+            }
+            else if(Boss1.xStep == blockSize/-2){
+                Boss1.xStep = 0;
+            }
+            Boss1.xSprite = (Boss1.xSprite+1)%4;
+
+        }
+        else if (Boss1.direction == 3 && P1.map[Boss1.y-1][Boss1.x] != 0) {
+            if(Boss1.yStep == 0){
+                Boss1.yStep = blockSize/-2;
+            }
+            else if(Boss1.yStep == blockSize/-2){
+                Boss1.yStep = 0;
+                Boss1.newX = Boss1.x;
+                Boss1.newY = Boss1.y-1;
+            }
+            else if(Boss1.yStep == blockSize/2){
+                Boss1.yStep = 0;
+            }
+            Boss1.xSprite = (Boss1.xSprite+1)%4;
+
+        }   
+        else{
+            Boss1.xSprite = 0;
+        }
+
+        Boss1.x = Boss1.newX;
+        Boss1.y = Boss1.newY;    
+}
+
+function resetGame(){
+    if(keyPressed[' ']){            // reset game
+            P1.map = [                       
+                [0,0,0,0,0,0,0,0,0,0,0],     
+                [0,2,1,1,1,1,1,1,1,2,0],      
+                [0,1,0,0,1,1,1,0,0,1,0],       
+                [0,1,0,1,1,0,1,1,0,1,0],        
+                [0,1,1,1,1,0,1,1,1,1,0],        
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,0,0,1,4,1,0,0,1,0],
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,0,1,1,0,1,1,0,1,0],
+                [0,1,0,0,1,1,1,0,0,1,0],
+                [0,2,1,1,1,1,1,1,1,2,0],    
+                [0,0,0,0,0,0,0,0,0,0,0]   
+            ];
+
+            P2.map = [                        
+                [0,0,0,0,0,0,0,0,0,0,0],        
+                [0,2,1,1,1,1,1,1,1,2,0],        
+                [0,1,0,0,1,1,1,0,0,1,0],        
+                [0,1,0,1,1,0,1,1,0,1,0],        
+                [0,1,1,1,1,0,1,1,1,1,0],       
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,0,0,1,5,1,0,0,1,0],
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,1,1,1,0,1,1,1,1,0],
+                [0,1,0,1,1,0,1,1,0,1,0],
+                [0,1,0,0,1,1,1,0,0,1,0],
+                [0,2,1,1,1,1,1,1,1,2,0],    
+                [0,0,0,0,0,0,0,0,0,0,0]   
+            ];
+            P1.x = 5, P1.newX = 5;
+            P1.y = 6, P1.newY = 6;
+            P1.xStep = 0, P1.yStep = 0;
+            P2.x = 5, P2.newX = 5;
+            P2.y = 6, P2.newY = 6;
+            P2.xStep = 0, P2.yStep = 0;
+            Boss1.x = 5, Boss1.newX = 5;
+            Boss1.y = 1, Boss1.newY = 1;
+            Boss1.xStep = 0, Boss1.yStep = 0;
+            P1.due = 0, P2.due = 0, Boss1.due = 0;
+            P1.direction = 0, P2.direction = 0, Boss1.direction = 0;
+            P1.coins = 76, P2.coins = 76;
+            P1.powerUpsCollected = 0;
+            Boss1.alive = true, Boss1.vulnerable = false;
+            gameRun = true;
+            if(gameOver == true){
+                P1.score = 0, P2.score = 0;
+                P1.coinVal = 1, P2.coinVal = 10; 
+                gameLevel = 1;
+                gameOver = false;
+            }
+
+    }
+}
+
+// Update the location of character
+function update(){
+    if(gameRun == true){
+        updateP1Movement();
+        updateP2Movement();
+        if(Boss1.alive){
+            updateB1Movement();
+            checkCollision(P1, Boss1);
+        }
+
+        //check if either side finished
+        if(P1.coins == 0 || P2.coins == 0){
+            gameRun = false;
+            if(gameLevel != totalLevels){
+                gameLevel++;
+            }
+            else{
+                gameOver = true;
+            }
+        }
+    }
+}
+
+window.onload = init;
+
+</script>
+
+</head>
+
+<canvas id="myCanvas" width="1200" height="800">
+</canvas>
+<canvas id="instructions" width="300" height = "350"></canvas>
+<img id="femalePlayer" src="img/femaleChar.png" style="display:none">
+<img id="malePlayer" src="img/maleChar.png" style="display:none">
+<img id="Boss" src="img/Boss.png" style="display:none">
+<audio id="coinSound">
+    <source src="audio/coin.wav">
+</audio>
+
+
+</html>
+
+
+
+
